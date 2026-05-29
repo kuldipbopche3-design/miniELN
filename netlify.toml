@@ -6,6 +6,11 @@
   # Node version to use during the Netlify build.
   NODE_VERSION = "20"
 
+  # NEXT_PUBLIC_ variables are intentionally embedded in the browser bundle by
+  # Next.js design — they are NOT secrets. Telling Netlify's scanner to skip
+  # them prevents a false-positive "secret found in build output" failure.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
+
 # ─── Next.js on Netlify ─────────────────────────────────────────────────────
 # The @netlify/plugin-nextjs plugin handles SSR, middleware, and image
 # optimisation automatically. Add it via the Netlify UI or the command below:
