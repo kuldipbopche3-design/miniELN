@@ -1,5 +1,8 @@
 'use client';
 
+// Prevent static prerendering of this auth-protected route at build time.
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
