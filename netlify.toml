@@ -1,0 +1,24 @@
+[build]
+  command   = "npm run build"
+  publish   = ".next"
+
+[build.environment]
+  # Node version to use during the Netlify build.
+  NODE_VERSION = "20"
+
+# ─── Next.js on Netlify ─────────────────────────────────────────────────────
+# The @netlify/plugin-nextjs plugin handles SSR, middleware, and image
+# optimisation automatically. Add it via the Netlify UI or the command below:
+#   netlify plugins:install @netlify/plugin-nextjs
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ─── Required environment variables ─────────────────────────────────────────
+# Do NOT hardcode values here. Set these in:
+#   Netlify Dashboard → Site Settings → Environment variables
+#
+#   NEXT_PUBLIC_SUPABASE_URL      → your Supabase project URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY → your Supabase anon/public key
+#
+# The SUPABASE_SERVICE_ROLE_KEY must NEVER be added here; only set it via the
+# Netlify dashboard and mark it as sensitive (server-only).
