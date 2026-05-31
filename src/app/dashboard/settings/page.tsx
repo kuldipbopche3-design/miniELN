@@ -48,11 +48,15 @@ export default function SettingsPage() {
   const [maxFileSizeMb, setMaxFileSizeMb] = useState(10);
   const [allowedMimeTypes, setAllowedMimeTypes] = useState('');
   const [entryStatuses, setEntryStatuses] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [timezone, setTimezone] = useState('UTC');
+  const [storageQuotaGb, setStorageQuotaGb] = useState(10);
+  const [customPrefix, setCustomPrefix] = useState('');
   const [isUpdatingWorkspace, setIsUpdatingWorkspace] = useState(false);
 
   // 3. Team form states
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'guest'>('member');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'scientist' | 'reviewer' | 'viewer'>('scientist');
   const [isInviting, setIsInviting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<any | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
@@ -64,11 +68,16 @@ export default function SettingsPage() {
     }
     if (activeWorkspace) {
       setWorkspaceName(activeWorkspace.name || '');
+      const wsSettings = (activeWorkspace.settings as any) || {};
+      setStorageQuotaGb(wsSettings.storage_quota_gb || 10);
+      setCustomPrefix(wsSettings.custom_prefix || '');
     }
     if (settings) {
       setMaxFileSizeMb(settings.max_file_size_mb || 10);
       setAllowedMimeTypes(settings.allowed_mime_types?.join(', ') || '');
       setEntryStatuses(settings.entry_statuses?.join(', ') || '');
+      setLogoUrl(settings.logo_url || '');
+      setTimezone(settings.timezone || 'UTC');
     }
   }, [profile, activeWorkspace, settings]);
 
@@ -99,9 +108,26 @@ export default function SettingsPage() {
 
     setIsUpdatingWorkspace(true);
     try {
-      // Update workspace name
+      // 1. Fetch current workspace settings JSON
+      const { data: wsData } = await supabase
+        .from('workspaces')
+        .select('settings')
+        .eq('id', activeWorkspace.id)
+        .single();
+      
+      const currentWsSettings = ((wsData as any)?.settings) || {};
+
+      // Update workspace name and settings JSON
       const { error: wsError } = await (supabase.from('workspaces') as any)
-        .update({ name: workspaceName.trim(), updated_at: new Date().toISOString() })
+        .update({ 
+          name: workspaceName.trim(), 
+          settings: {
+            ...currentWsSettings,
+            storage_quota_gb: storageQuotaGb,
+            custom_prefix: customPrefix.trim()
+          },
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', activeWorkspace.id);
 
       if (wsError) throw wsError;
@@ -111,16 +137,27 @@ export default function SettingsPage() {
         .split(',')
         .map((s) => s.trim())
         .filter((s) => s !== '');
+
+      const allowedDbStatuses = ['draft', 'in_progress', 'review', 'approved'];
       const statusesArray = entryStatuses
         .split(',')
-        .map((s) => s.trim())
+        .map((s) => s.trim().toLowerCase().replace(/\s+/g, '_'))
         .filter((s) => s !== '');
+
+      const invalidStatuses = statusesArray.filter(s => !allowedDbStatuses.includes(s));
+      if (invalidStatuses.length > 0) {
+        toast.error(`Invalid status: "${invalidStatuses.join(', ')}". Only 'draft', 'in_progress', 'review', and 'approved' are supported.`);
+        setIsUpdatingWorkspace(false);
+        return;
+      }
 
       const { error: settingsError } = await (supabase.from('workspace_settings') as any)
         .update({
           max_file_size_mb: maxFileSizeMb,
           allowed_mime_types: mimeTypesArray,
           entry_statuses: statusesArray,
+          logo_url: logoUrl.trim() || null,
+          timezone: timezone,
           updated_at: new Date().toISOString(),
         })
         .eq('workspace_id', activeWorkspace.id);
@@ -164,15 +201,40 @@ export default function SettingsPage() {
         return;
       }
 
-      // 3. Insert membership linkage
+      // 3. Determine database role matching custom RBAC constraint
+      const dbRole = inviteRole === 'viewer' ? 'viewer' : 'admin';
+
+      // 4. Insert membership linkage
       const { error: insertError } = await (supabase.from('workspace_members') as any)
         .insert({
           workspace_id: activeWorkspace.id,
           user_id: targetUser.id,
-          role: inviteRole,
+          role: dbRole,
         });
 
       if (insertError) throw insertError;
+
+      // 5. Update workspace settings JSON to save specific logical role
+      const { data: wsData } = await supabase
+        .from('workspaces')
+        .select('settings')
+        .eq('id', activeWorkspace.id)
+        .single();
+
+      const currentSettings = ((wsData as any)?.settings) || {};
+      const memberRoles = currentSettings.member_roles || {};
+      memberRoles[targetUser.id] = inviteRole;
+
+      const { error: updateWsError } = await (supabase.from('workspaces') as any)
+        .update({
+          settings: {
+            ...currentSettings,
+            member_roles: memberRoles
+          }
+        })
+        .eq('id', activeWorkspace.id);
+
+      if (updateWsError) throw updateWsError;
 
       toast.success(`Successfully invited ${targetUser.display_name} to the workspace!`);
       setInviteEmail('');
@@ -196,6 +258,24 @@ export default function SettingsPage() {
         .eq('user_id', memberToRemove.user_id);
 
       if (error) throw error;
+
+      // Remove custom role mapping from workspaces settings JSON
+      const { data: wsData } = await supabase
+        .from('workspaces')
+        .select('settings')
+        .eq('id', activeWorkspace.id)
+        .single();
+
+      if (wsData) {
+        const currentSettings = ((wsData as any)?.settings) || {};
+        if (currentSettings.member_roles) {
+          delete currentSettings.member_roles[memberToRemove.user_id];
+          await (supabase.from('workspaces') as any)
+            .update({ settings: currentSettings })
+            .eq('id', activeWorkspace.id);
+        }
+      }
+
       toast.success('Team member removed from workspace');
       await refreshWorkspaceData();
     } catch (err: any) {
@@ -336,6 +416,8 @@ export default function SettingsPage() {
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-zinc-700">Timezone</label>
                 <select
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
                   disabled={!isPrivileged}
                   className="flex h-10 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 cursor-pointer"
                 >
@@ -343,8 +425,47 @@ export default function SettingsPage() {
                   <option value="GMT">GMT</option>
                   <option value="EST">Eastern Time (EST)</option>
                   <option value="PST">Pacific Time (PST)</option>
+                  <option value="Asia/Kolkata">India Standard Time (IST)</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Custom Logo URL"
+                type="text"
+                placeholder="https://example.com/logo.png"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                disabled={!isPrivileged}
+                helperText="URL of custom workspace branding image."
+              />
+
+              <Input
+                label="Document Export Prefix"
+                type="text"
+                placeholder="e.g. LAB-"
+                value={customPrefix}
+                onChange={(e) => setCustomPrefix(e.target.value)}
+                disabled={!isPrivileged}
+                helperText="Code prefix for report PDFs and archives."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <label className="block font-medium text-zinc-700">Storage Quota Limit</label>
+                <span className="font-bold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded">{storageQuotaGb} GB</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="50"
+                value={storageQuotaGb}
+                onChange={(e) => setStorageQuotaGb(parseInt(e.target.value) || 10)}
+                disabled={!isPrivileged}
+                className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-650 disabled:opacity-50"
+              />
             </div>
 
             <Input
@@ -403,9 +524,10 @@ export default function SettingsPage() {
                     <Select
                       label="Assigned Role"
                       options={[
-                        { value: 'admin', label: 'Admin' },
-                        { value: 'member', label: 'Member' },
-                        { value: 'guest', label: 'Guest' }
+                        { value: 'admin', label: 'Admin (Workspace Setup)' },
+                        { value: 'scientist', label: 'Scientist (Write Logs)' },
+                        { value: 'reviewer', label: 'Reviewer (Sign off)' },
+                        { value: 'viewer', label: 'Viewer (Read-only)' }
                       ]}
                       value={inviteRole}
                       onChange={(e: any) => setInviteRole(e.target.value)}
@@ -456,7 +578,8 @@ export default function SettingsPage() {
                           variant={
                             member.role === 'owner' ? 'danger' :
                             member.role === 'admin' ? 'warning' :
-                            member.role === 'member' ? 'primary' : 'zinc'
+                            member.role === 'scientist' ? 'primary' :
+                            member.role === 'reviewer' ? 'accent' : 'zinc'
                           } 
                           styleType="subtle"
                           className="capitalize text-[10px]"

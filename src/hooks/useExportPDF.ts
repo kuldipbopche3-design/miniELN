@@ -222,7 +222,7 @@ export function useExportPDF() {
 
       // 5. Signature Footer Block
       y += 10;
-      checkPageBreak(30);
+      checkPageBreak(40);
       doc.setDrawColor(228, 228, 231);
       doc.line(margin, y, pageWidth - margin, y);
       y += 6;
@@ -233,15 +233,55 @@ export function useExportPDF() {
       doc.text('PREPARED BY (AUTHOR SIGNATURE):', margin, y);
       doc.text('VERIFIED BY (REVIEWER SIGNATURE):', margin + (contentWidth / 2) + 5, y);
       
-      y += 14;
-      doc.setDrawColor(160, 160, 160);
-      doc.line(margin, y, margin + 60, y);
-      doc.line(margin + (contentWidth / 2) + 5, y, margin + (contentWidth / 2) + 65, y);
+      y += 5;
       
+      // Author info
+      doc.setFont('Helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(39, 39, 42); // zinc-800
+      doc.text(entry.author?.display_name || 'Staff Member', margin, y + 5);
       doc.setFont('Helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text('DATE:', margin, y + 4);
-      doc.text('DATE:', margin + (contentWidth / 2) + 5, y + 4);
+      doc.text(`Date: ${format(new Date(entry.created_at), 'PPP')}`, margin, y + 10);
+      
+      // Draw signature line for author
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, y + 12, margin + 60, y + 12);
+
+      // Reviewer electronic signature seal
+      const signature = (entry.metadata as any)?.signature;
+      if (entry.status === 'approved' && signature) {
+        // Green box background for the electronic signature seal
+        doc.setFillColor(240, 253, 244); // emerald-50
+        doc.rect(margin + (contentWidth / 2) + 2, y + 1, (contentWidth / 2) - 4, 18, 'F');
+        doc.setDrawColor(187, 247, 208); // emerald-200
+        doc.rect(margin + (contentWidth / 2) + 2, y + 1, (contentWidth / 2) - 4, 18, 'S');
+
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(21, 128, 61); // emerald-700
+        doc.text('✓ SIGNED ELECTRONICALLY', margin + (contentWidth / 2) + 6, y + 5);
+        
+        doc.setFont('Helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(6, 78, 59); // emerald-900
+        doc.text(signature.signed_by, margin + (contentWidth / 2) + 6, y + 10);
+        
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(22, 101, 52); // emerald-800
+        doc.text(`Email: ${signature.signer_email}`, margin + (contentWidth / 2) + 6, y + 13);
+        doc.text(`Date: ${format(new Date(signature.signed_at), 'PPP p')}`, margin + (contentWidth / 2) + 6, y + 16);
+      } else {
+        y += 9;
+        doc.setDrawColor(160, 160, 160);
+        doc.line(margin + (contentWidth / 2) + 5, y, margin + (contentWidth / 2) + 65, y);
+        doc.setFont('Helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text('DATE:', margin + (contentWidth / 2) + 5, y + 4);
+      }
+
+      y += 18;
 
       // Save the generated document
       const fileTitle = entry.title.toLowerCase().replace(/[^a-z0-9]/g, '-');

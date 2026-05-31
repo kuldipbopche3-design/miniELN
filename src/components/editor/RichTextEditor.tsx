@@ -85,6 +85,95 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
 
+  const insertProcedure = () => {
+    editor.chain().focus().insertContent(`
+      <h2>1. Objective</h2>
+      <p>State the primary goal of this experiment trial...</p>
+      <h2>2. Safety Precautions</h2>
+      <ul>
+        <li>Wear appropriate PPE (Lab coat, safety goggles, nitrile gloves).</li>
+        <li>Review safety data sheets (SDS) for all chemicals.</li>
+      </ul>
+      <h2>3. Step-by-Step Procedure</h2>
+      <ol>
+        <li>Measure and combine reagents as specified.</li>
+        <li>Set up reaction vessel and run at designated temperature.</li>
+        <li>Collect and analyze samples at regular intervals.</li>
+      </ol>
+    `).run();
+  };
+
+  const insertReagents = () => {
+    editor.chain().focus().insertContent(`
+      <h2>Reagents and Raw Materials</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Reagent / Solvent Name</th>
+            <th>CAS Number</th>
+            <th>Purity (%)</th>
+            <th>Quantity Used</th>
+            <th>Lot / Batch No.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Example Compound A</td>
+            <td>123-45-6</td>
+            <td>99.0%</td>
+            <td>10.5 g</td>
+            <td>LOT-001A</td>
+          </tr>
+          <tr>
+            <td>Example Solvent B</td>
+            <td>67-64-1</td>
+            <td>99.9%</td>
+            <td>50.0 mL</td>
+            <td>LOT-2026B</td>
+          </tr>
+        </tbody>
+      </table>
+    `).run();
+  };
+
+  const insertObservations = () => {
+    editor.chain().focus().insertContent(`
+      <h2>Observations & In-Process Analysis</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Timepoint</th>
+            <th>Temp (°C)</th>
+            <th>Visual Observations / Color Change</th>
+            <th>Yield / Conversion (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0 min</td>
+            <td>25.0</td>
+            <td>Clear, colorless liquid</td>
+            <td>0.0%</td>
+          </tr>
+          <tr>
+            <td>30 min</td>
+            <td>65.0</td>
+            <td>Light yellow tint starts appearing</td>
+            <td>45.2%</td>
+          </tr>
+          <tr>
+            <td>60 min</td>
+            <td>65.0</td>
+            <td>Deep amber color, reaction complete</td>
+            <td>98.1%</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>Notes</h3>
+      <blockquote>Record any unexpected deviations, exotherms, or spill incidents here...</blockquote>
+    `).run();
+  };
+
   return (
     <div className={cn(
       "w-full border border-zinc-200 rounded-lg overflow-hidden bg-white transition-all",
@@ -280,6 +369,34 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               </button>
             </>
           )}
+
+          <div className="w-px h-5 bg-zinc-200 mx-1" />
+          
+          <span className="text-xs font-semibold text-zinc-400 select-none mr-1">Templates:</span>
+          <button
+            type="button"
+            onClick={insertProcedure}
+            className="px-2 py-1 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded transition cursor-pointer border border-indigo-100"
+            title="Insert Step-by-Step Procedure template"
+          >
+            + Procedure
+          </button>
+          <button
+            type="button"
+            onClick={insertReagents}
+            className="px-2 py-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition cursor-pointer border border-emerald-100"
+            title="Insert Reagents table template"
+          >
+            + Reagents
+          </button>
+          <button
+            type="button"
+            onClick={insertObservations}
+            className="px-2 py-1 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded transition cursor-pointer border border-amber-100"
+            title="Insert Observations table template"
+          >
+            + Observations
+          </button>
         </div>
       )}
       <div className="prose max-w-none min-h-[300px] overflow-y-auto">

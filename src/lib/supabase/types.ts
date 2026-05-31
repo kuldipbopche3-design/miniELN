@@ -280,31 +280,37 @@ export interface Database {
         Row: {
           id: string
           workspace_id: string
-          actor_id: string
+          user_id: string
           action: string
-          target_type: string
-          target_id: string | null
-          details: Json | null
+          entity_type: string
+          entity_id: string | null
+          metadata: Json | null
+          ip_address: string | null
+          user_agent: string | null
           created_at: string
         }
         Insert: {
           id?: string
           workspace_id: string
-          actor_id: string
+          user_id: string
           action: string
-          target_type: string
-          target_id?: string | null
-          details?: Json | null
+          entity_type: string
+          entity_id?: string | null
+          metadata?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           workspace_id?: string
-          actor_id?: string
+          user_id?: string
           action?: string
-          target_type?: string
-          target_id?: string | null
-          details?: Json | null
+          entity_type?: string
+          entity_id?: string | null
+          metadata?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
           created_at?: string
         }
       }

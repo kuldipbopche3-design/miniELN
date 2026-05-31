@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Database } from '@/lib/supabase/types';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import toast from 'react-hot-toast';
+import { getFriendlyErrorMessage } from '@/lib/utils';
 
 type LabEntry = Database['public']['Tables']['lab_entries']['Row'] & {
   author: Database['public']['Tables']['profiles']['Row'] | null;
@@ -142,11 +143,21 @@ export function useEntries() {
         if (tagError) throw tagError;
       }
 
+      // Log activity
+      await (supabase.from('activity_logs') as any).insert({
+        workspace_id: activeWorkspace.id,
+        user_id: user.id,
+        action: 'create',
+        entity_type: 'lab_entry',
+        entity_id: createdEntry.id,
+        metadata: { title: createdEntry.title }
+      });
+
       toast.success('Lab entry created successfully!');
       return createdEntry;
     } catch (err: any) {
       console.error('Error creating entry:', err);
-      toast.error(err.message || 'Failed to create lab entry');
+      toast.error(getFriendlyErrorMessage(err, 'Failed to create lab entry'));
       throw err;
     }
   };
@@ -202,10 +213,23 @@ export function useEntries() {
         }
       }
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && activeWorkspace) {
+        // Log activity
+        await (supabase.from('activity_logs') as any).insert({
+          workspace_id: activeWorkspace.id,
+          user_id: user.id,
+          action: 'update',
+          entity_type: 'lab_entry',
+          entity_id: entryId,
+          metadata: { title: updates.title }
+        });
+      }
+
       toast.success('Lab entry updated successfully!');
     } catch (err: any) {
       console.error('Error updating entry:', err);
-      toast.error(err.message || 'Failed to update lab entry');
+      toast.error(getFriendlyErrorMessage(err, 'Failed to update lab entry'));
       throw err;
     }
   };
@@ -218,10 +242,24 @@ export function useEntries() {
         .eq('id', entryId);
 
       if (error) throw error;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && activeWorkspace) {
+        // Log activity
+        await (supabase.from('activity_logs') as any).insert({
+          workspace_id: activeWorkspace.id,
+          user_id: user.id,
+          action: 'delete',
+          entity_type: 'lab_entry',
+          entity_id: entryId,
+          metadata: {}
+        });
+      }
+
       toast.success('Lab entry deleted successfully!');
     } catch (err: any) {
       console.error('Error deleting entry:', err);
-      toast.error('Failed to delete lab entry');
+      toast.error(getFriendlyErrorMessage(err, 'Failed to delete lab entry'));
       throw err;
     }
   };

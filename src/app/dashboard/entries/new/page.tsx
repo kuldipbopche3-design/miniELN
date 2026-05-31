@@ -26,10 +26,18 @@ export default function NewEntryPage() {
   // Form states
   const [title, setTitle] = useState('');
   const [sampleName, setSampleName] = useState('');
-  const [status, setStatus] = useState('In Progress');
+  const [status, setStatus] = useState('in_progress');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [content, setContent] = useState('<p></p>');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Sample Lot metadata states
+  const [materialName, setMaterialName] = useState('');
+  const [lotId, setLotId] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [yieldPercent, setYieldPercent] = useState('');
+  const [casNumber, setCasNumber] = useState('');
+  const [purity, setPurity] = useState('');
 
   // Available tags state
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -88,12 +96,22 @@ export default function NewEntryPage() {
 
     setIsSaving(true);
     try {
+      const sampleLotData = {
+        material_name: materialName.trim(),
+        lot_id: lotId.trim(),
+        quantity: quantity.trim(),
+        yield_percent: yieldPercent.trim(),
+        cas_number: casNumber.trim(),
+        purity: purity.trim(),
+      };
+
       const entryData = await createEntry({
         title: title.trim(),
         content,
         sample_name: sampleName.trim() || undefined,
         status,
         tagIds: selectedTagIds,
+        metadata: (materialName.trim() || lotId.trim() || casNumber.trim()) ? { sample_lot: sampleLotData } : undefined
       });
 
       if (entryData) {
@@ -108,10 +126,10 @@ export default function NewEntryPage() {
   };
 
   const statusOptions = [
-    { value: 'Draft', label: 'Draft' },
-    { value: 'In Progress', label: 'In Progress' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Archived', label: 'Archived' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'review', label: 'Review' },
+    { value: 'approved', label: 'Approved' },
   ];
 
   return (
@@ -183,6 +201,59 @@ export default function NewEntryPage() {
             availableTags={availableTags}
             onTagToggle={handleTagToggle}
             onTagCreate={handleTagCreate}
+          />
+        </div>
+      </div>
+
+      {/* Sample Lot Registry Panel */}
+      <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-zinc-900">Sample / Batch Information (Optional)</h3>
+          <p className="text-[11px] text-zinc-400">Log chemical batch metadata to index it inside the workspace-wide Registry.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <Input
+            label="Material Name"
+            type="text"
+            placeholder="e.g. Aspirin (Acetylsalicylic Acid)"
+            value={materialName}
+            onChange={(e) => setMaterialName(e.target.value)}
+          />
+          <Input
+            label="Lot / Batch ID"
+            type="text"
+            placeholder="e.g. ASP-2026-05"
+            value={lotId}
+            onChange={(e) => setLotId(e.target.value)}
+          />
+          <Input
+            label="CAS Number"
+            type="text"
+            placeholder="e.g. 50-78-2"
+            value={casNumber}
+            onChange={(e) => setCasNumber(e.target.value)}
+          />
+          <Input
+            label="Quantity"
+            type="text"
+            placeholder="e.g. 25.4 g"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+          <Input
+            label="Yield Percentage (%)"
+            type="text"
+            placeholder="e.g. 88.5%"
+            value={yieldPercent}
+            onChange={(e) => setYieldPercent(e.target.value)}
+          />
+          <Input
+            label="Purity (%)"
+            type="text"
+            placeholder="e.g. 99.2%"
+            value={purity}
+            onChange={(e) => setPurity(e.target.value)}
           />
         </div>
       </div>

@@ -18,15 +18,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-zinc-200 rounded-xl bg-white/50 backdrop-blur-xs">
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-55 hover:scale-105 transition-transform duration-200 text-primary">
-        <Icon className="h-6 w-6 text-primary" />
+    <div className="flex flex-col items-center justify-center text-center p-12 border border-dashed border-zinc-200 rounded-2xl bg-white/50 backdrop-blur-xs shadow-xs max-w-xl mx-auto my-4 transition duration-200 hover:border-zinc-300">
+      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-primary shadow-xs transition duration-300 hover:scale-105">
+        <Icon className="h-6.5 w-6.5 text-primary" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-zinc-900">{title}</h3>
-      <p className="mt-2 text-sm text-zinc-500 max-w-sm">{description}</p>
+      <h3 className="mt-5 text-base font-bold text-zinc-950 tracking-tight">{title}</h3>
+      <p className="mt-2 text-xs text-zinc-550 max-w-xs leading-relaxed">{description}</p>
       {actionText && onAction && (
         <div className="mt-6">
-          <Button variant="primary" onClick={onAction}>
+          <Button variant="primary" onClick={onAction} className="shadow-xs cursor-pointer">
             {actionText}
           </Button>
         </div>

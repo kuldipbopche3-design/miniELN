@@ -67,10 +67,15 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const workspacesList = (membershipData as any[])
         .filter(m => m.workspace !== null)
-        .map(m => ({
-          ...(m.workspace as Workspace),
-          role: m.role
-        }));
+        .map(m => {
+          const ws = m.workspace as Workspace;
+          const customRoles = (ws.settings as any)?.member_roles || {};
+          const customRole = customRoles[userId] || m.role;
+          return {
+            ...ws,
+            role: customRole
+          };
+        });
 
       setAllWorkspaces(workspacesList);
 
@@ -102,7 +107,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           workspace_id: active.id,
           max_file_size_mb: 10,
           allowed_mime_types: ['image/*', 'application/pdf', 'text/*', '.csv', '.xlsx'],
-          entry_statuses: ['Draft', 'In Progress', 'Completed', 'Archived'],
+          entry_statuses: ['draft', 'in_progress', 'review', 'approved'],
           timezone: 'UTC',
           logo_url: null,
           updated_at: new Date().toISOString()
@@ -116,7 +121,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .eq('workspace_id', active.id);
 
       if (membersData) {
-        setMembers(membersData as WorkspaceMember[]);
+        const activeSettings = active.settings as any;
+        const customRoles = activeSettings?.member_roles || {};
+        
+        const mergedMembers = (membersData as any[]).map((member) => {
+          const customRole = customRoles[member.user_id] || member.role;
+          return {
+            ...member,
+            role: customRole
+          };
+        });
+
+        setMembers(mergedMembers as WorkspaceMember[]);
       }
 
     } catch (err: any) {

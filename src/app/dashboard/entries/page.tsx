@@ -79,10 +79,10 @@ export default function EntriesListPage() {
 
   const statusOptions = [
     { value: 'All', label: 'All Statuses' },
-    { value: 'Draft', label: 'Draft' },
-    { value: 'In Progress', label: 'In Progress' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Archived', label: 'Archived' }
+    { value: 'draft', label: 'Draft' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'review', label: 'Review' },
+    { value: 'approved', label: 'Approved' }
   ];
 
   const tagOptions = [
@@ -220,13 +220,16 @@ export default function EntriesListPage() {
                 <div className="flex justify-between items-start gap-2">
                   <Badge
                     variant={
-                      entry.status === 'Completed' ? 'accent' :
-                      entry.status === 'In Progress' ? 'primary' :
-                      entry.status === 'Draft' ? 'zinc' : 'warning'
+                      entry.status === 'approved' ? 'accent' :
+                      entry.status === 'in_progress' ? 'primary' :
+                      entry.status === 'draft' ? 'zinc' : 'warning'
                     }
                     styleType="subtle"
                   >
-                    {entry.status}
+                    {entry.status === 'in_progress' ? 'In Progress' :
+                     entry.status === 'draft' ? 'Draft' :
+                     entry.status === 'review' ? 'Review' :
+                     entry.status === 'approved' ? 'Approved' : entry.status}
                   </Badge>
                   <span className="text-[10px] font-medium text-zinc-400 flex items-center gap-1">
                     <Calendar className="h-3 w-3" />

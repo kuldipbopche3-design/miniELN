@@ -20,6 +20,138 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatDistanceToNow } from 'date-fns';
 
+const DonutChart = ({ approved, review, inProgress, draft }: any) => {
+  const total = approved + review + inProgress + draft;
+  if (total === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 h-48">
+        <svg width="120" height="120" viewBox="0 0 100 100" className="transform -rotate-90">
+          <circle cx="50" cy="50" r="35" fill="transparent" stroke="#f4f4f5" strokeWidth="10" />
+        </svg>
+        <span className="text-xs text-zinc-400 font-semibold mt-4">No entries logged yet</span>
+      </div>
+    );
+  }
+
+  const pApproved = (approved / total) * 100;
+  const pReview = (review / total) * 100;
+  const pInProgress = (inProgress / total) * 100;
+  const pDraft = (draft / total) * 100;
+
+  const circ = 2 * Math.PI * 35; // circ = ~219.9
+  const strokeApp = (approved / total) * circ;
+  const strokeRev = (review / total) * circ;
+  const strokeInP = (inProgress / total) * circ;
+  const strokeDrf = (draft / total) * circ;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 p-4 h-48">
+      <div className="relative w-28 h-28 shrink-0">
+        <svg width="100%" height="100%" viewBox="0 0 100 100" className="transform -rotate-90">
+          <circle cx="50" cy="50" r="35" fill="transparent" stroke="#f4f4f5" strokeWidth="10" />
+          {approved > 0 && (
+            <circle
+              cx="50"
+              cy="50"
+              r="35"
+              fill="transparent"
+              stroke="#10b981"
+              strokeWidth="10"
+              strokeDasharray={`${strokeApp} ${circ}`}
+              strokeDashoffset="0"
+            />
+          )}
+          {review > 0 && (
+            <circle
+              cx="50"
+              cy="50"
+              r="35"
+              fill="transparent"
+              stroke="#f59e0b"
+              strokeWidth="10"
+              strokeDasharray={`${strokeRev} ${circ}`}
+              strokeDashoffset={-strokeApp}
+            />
+          )}
+          {inProgress > 0 && (
+            <circle
+              cx="50"
+              cy="50"
+              r="35"
+              fill="transparent"
+              stroke="#6366f1"
+              strokeWidth="10"
+              strokeDasharray={`${strokeInP} ${circ}`}
+              strokeDashoffset={-(strokeApp + strokeRev)}
+            />
+          )}
+          {draft > 0 && (
+            <circle
+              cx="50"
+              cy="50"
+              r="35"
+              fill="transparent"
+              stroke="#71717a"
+              strokeWidth="10"
+              strokeDasharray={`${strokeDrf} ${circ}`}
+              strokeDashoffset={-(strokeApp + strokeRev + strokeInP)}
+            />
+          )}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-black text-zinc-900">{total}</span>
+          <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Logs</span>
+        </div>
+      </div>
+
+      <div className="space-y-1.5 text-[11px] font-semibold text-zinc-650 grid grid-cols-2 sm:grid-cols-1 gap-x-4">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+          <span>Approved: {approved} ({pApproved.toFixed(0)}%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+          <span>In Review: {review} ({pReview.toFixed(0)}%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
+          <span>In Progress: {inProgress} ({pInProgress.toFixed(0)}%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-zinc-500 shrink-0" />
+          <span>Draft: {draft} ({pDraft.toFixed(0)}%)</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const BarChart = ({ data }: any) => {
+  const maxCount = Math.max(...data.map((d: any) => d.count), 5);
+  
+  return (
+    <div className="flex flex-col justify-end h-48 p-4">
+      <div className="flex-1 flex items-end justify-between gap-4 h-full border-b border-zinc-150 pb-1.5">
+        {data.map((item: any, idx: number) => {
+          const barHeightPercent = (item.count / maxCount) * 100;
+          return (
+            <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+              <div className="absolute -top-7 scale-0 group-hover:scale-100 transition-all duration-150 px-2 py-0.5 rounded bg-zinc-900 text-white text-[9px] font-bold shadow whitespace-nowrap z-10 pointer-events-none">
+                {item.count} logs
+              </div>
+              <div 
+                style={{ height: `${Math.max(barHeightPercent, 4)}%` }} 
+                className="w-full max-w-[24px] bg-gradient-to-t from-indigo-650 to-indigo-500 rounded-t hover:from-indigo-600 hover:to-indigo-400 transition-all duration-300"
+              />
+              <span className="text-[9px] text-zinc-400 font-bold mt-1.5 select-none uppercase tracking-wider">{item.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function DashboardPage() {
   const supabase = createClient();
   const { activeWorkspace } = useWorkspace();
@@ -32,6 +164,15 @@ export default function DashboardPage() {
   });
   const [recentEntries, setRecentEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Chart States
+  const [statusCounts, setStatusCounts] = useState({
+    approved: 0,
+    review: 0,
+    in_progress: 0,
+    draft: 0
+  });
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
 
   useEffect(() => {
     if (!activeWorkspace) return;
@@ -48,12 +189,12 @@ export default function DashboardPage() {
           .eq('workspace_id', workspaceId)
           .eq('is_deleted', false);
 
-        // 2. Fetch active entries count (status 'In Progress')
+        // 2. Fetch active entries count (status 'in_progress')
         const { count: activeCount } = await supabase
           .from('lab_entries')
           .select('*', { count: 'exact', head: true })
           .eq('workspace_id', workspaceId)
-          .eq('status', 'In Progress')
+          .eq('status', 'in_progress')
           .eq('is_deleted', false);
 
         // 3. Fetch files count
@@ -74,6 +215,48 @@ export default function DashboardPage() {
           filesCount: filesCount || 0,
           membersCount: membersCount || 0
         });
+
+        // 5. Fetch all statuses and dates for charts
+        const { data: chartData } = await supabase
+          .from('lab_entries')
+          .select('status, created_at')
+          .eq('workspace_id', workspaceId)
+          .eq('is_deleted', false);
+
+        const counts = {
+          approved: 0,
+          review: 0,
+          in_progress: 0,
+          draft: 0
+        };
+
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentMonthIdx = new Date().getMonth();
+        const last5Months: any[] = [];
+        for (let i = 4; i >= 0; i--) {
+          const idx = (currentMonthIdx - i + 12) % 12;
+          last5Months.push({
+            name: months[idx],
+            count: 0
+          });
+        }
+
+        if (chartData) {
+          chartData.forEach((row: any) => {
+            if (row.status in counts) {
+              counts[row.status as keyof typeof counts]++;
+            }
+            const date = new Date(row.created_at || new Date());
+            const monthName = months[date.getMonth()];
+            const match = last5Months.find(m => m.name === monthName);
+            if (match) {
+              match.count++;
+            }
+          });
+        }
+
+        setStatusCounts(counts);
+        setMonthlyData(last5Months);
 
         // 5. Fetch recent entries (last 5)
         const { data: recent } = await supabase
@@ -164,6 +347,34 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-xs p-5 space-y-2">
+          <div>
+            <h3 className="text-sm font-bold text-zinc-950">QA Document Pass Rates</h3>
+            <p className="text-[11px] text-zinc-450">Ratio of signed/approved compliance records against active drafts.</p>
+          </div>
+          <div className="border-t border-zinc-100 pt-3">
+            <DonutChart 
+              approved={statusCounts.approved} 
+              review={statusCounts.review} 
+              inProgress={statusCounts.in_progress} 
+              draft={statusCounts.draft} 
+            />
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200 rounded-xl shadow-xs p-5 space-y-2">
+          <div>
+            <h3 className="text-sm font-bold text-zinc-950">Log Throughput Velocity</h3>
+            <p className="text-[11px] text-zinc-450">Monthly volume of logged scientific protocols and analytical batches.</p>
+          </div>
+          <div className="border-t border-zinc-100 pt-3">
+            <BarChart data={monthlyData} />
+          </div>
+        </div>
+      </div>
+
       {/* Main Body grid split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -228,13 +439,16 @@ export default function DashboardPage() {
                   <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
                     <Badge 
                       variant={
-                        entry.status === 'Completed' ? 'accent' :
-                        entry.status === 'In Progress' ? 'primary' :
-                        entry.status === 'Draft' ? 'zinc' : 'warning'
+                        entry.status === 'approved' ? 'accent' :
+                        entry.status === 'in_progress' ? 'primary' :
+                        entry.status === 'draft' ? 'zinc' : 'warning'
                       }
                       styleType="solid"
                     >
-                      {entry.status}
+                      {entry.status === 'in_progress' ? 'In Progress' :
+                       entry.status === 'draft' ? 'Draft' :
+                       entry.status === 'review' ? 'Review' :
+                       entry.status === 'approved' ? 'Approved' : entry.status}
                     </Badge>
                     <Link href={`/dashboard/entries/${entry.id}`}>
                       <Button variant="ghost" size="sm" className="text-xs">

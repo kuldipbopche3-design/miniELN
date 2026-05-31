@@ -17,7 +17,9 @@ import {
   Plus, 
   ChevronDown,
   Building,
-  User
+  User,
+  ShieldCheck,
+  Layers
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Button } from '@/components/ui/Button';
@@ -44,6 +46,8 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Experiment Logs', href: '/dashboard/entries', icon: BookOpen },
     { name: 'Files Explorer', href: '/dashboard/files', icon: FolderClosed },
+    { name: 'Batch Registry', href: '/dashboard/samples', icon: Layers },
+    { name: 'Audit Logs', href: '/dashboard/audit-logs', icon: ShieldCheck },
     { name: 'Lab Settings', href: '/dashboard/settings', icon: Settings },
   ];
 
@@ -185,6 +189,8 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
                 {pathname === '/dashboard' && 'Dashboard'}
                 {pathname.startsWith('/dashboard/entries') && 'Experiment Logs'}
                 {pathname.startsWith('/dashboard/files') && 'Files Explorer'}
+                {pathname.startsWith('/dashboard/samples') && 'Batch Registry'}
+                {pathname.startsWith('/dashboard/audit-logs') && 'Audit Logs'}
                 {pathname.startsWith('/dashboard/settings') && 'Lab Settings'}
               </span>
             </div>

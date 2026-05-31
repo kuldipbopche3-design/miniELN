@@ -28,19 +28,24 @@ import toast from 'react-hot-toast';
 export default function FilesPage() {
   const supabase = createClient();
   const { activeWorkspace } = useWorkspace();
-  const { getDownloadUrl, deleteFile } = useFileUpload();
+  const { getDownloadUrl, deleteFile, uploadFile } = useFileUpload();
 
   const [files, setFiles] = useState<any[]>([]);
+  const [entries, setEntries] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
   const [fileToDelete, setFileToDelete] = useState<{ id: string; url: string } | null>(null);
+  
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedEntryId, setSelectedEntryId] = useState('');
 
   const fetchWorkspaceFiles = useCallback(async () => {
     if (!activeWorkspace) return;
     setIsLoading(true);
 
     try {
+      // 1. Fetch files
       const { data, error } = await supabase
         .from('files')
         .select('*, entry:lab_entries(id, title)')
@@ -49,6 +54,17 @@ export default function FilesPage() {
 
       if (error) throw error;
       setFiles(data || []);
+
+      // 2. Fetch active workspace entries to link files to
+      const { data: entriesData } = await supabase
+        .from('lab_entries')
+        .select('id, title')
+        .eq('workspace_id', activeWorkspace.id)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
+      
+      if (entriesData) setEntries(entriesData);
+
     } catch (err) {
       console.error('Error fetching workspace files:', err);
       toast.error('Failed to load file explorer list');
@@ -60,6 +76,66 @@ export default function FilesPage() {
   useEffect(() => {
     fetchWorkspaceFiles();
   }, [fetchWorkspaceFiles]);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      setIsLoading(true);
+      try {
+        let uploadCount = 0;
+        for (const file of droppedFiles) {
+          const success = await uploadFile(file, selectedEntryId || undefined);
+          if (success) uploadCount++;
+        }
+        if (uploadCount > 0) {
+          toast.success(`Successfully uploaded ${uploadCount} file(s)!`);
+          fetchWorkspaceFiles();
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error('File upload failed');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFiles = Array.from(e.target.files);
+      setIsLoading(true);
+      try {
+        let uploadCount = 0;
+        for (const file of selectedFiles) {
+          const success = await uploadFile(file, selectedEntryId || undefined);
+          if (success) uploadCount++;
+        }
+        if (uploadCount > 0) {
+          toast.success(`Successfully uploaded ${uploadCount} file(s)!`);
+          fetchWorkspaceFiles();
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error('File upload failed');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   const handleDownload = async (fileUrl: string) => {
     let storagePath = '';
@@ -149,6 +225,56 @@ export default function FilesPage() {
         <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl bg-white border border-zinc-200 shadow-xs text-xs font-semibold text-zinc-600">
           <HardDrive className="h-4.5 w-4.5 text-indigo-650" />
           <span>Space Used: <strong className="text-zinc-900">{totalSizeMb} MB</strong></span>
+        </div>
+      </div>
+
+      {/* Drag & Drop File Zone */}
+      <div 
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+        className={`bg-white border-2 border-dashed rounded-xl p-8 shadow-xs transition duration-150 flex flex-col items-center justify-center text-center space-y-4 ${
+          dragActive ? 'border-primary bg-indigo-50/10' : 'border-zinc-200'
+        }`}
+      >
+        <div className="h-12 w-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-650 shrink-0">
+          <HardDrive className="h-6 w-6" />
+        </div>
+        
+        <div className="space-y-1.5 max-w-sm">
+          <p className="font-bold text-zinc-900 text-sm">
+            Drag and drop raw data reports here or{' '}
+            <label className="text-primary font-bold hover:underline cursor-pointer select-none">
+              browse local files
+              <input 
+                type="file" 
+                multiple 
+                onChange={handleFileInputChange} 
+                className="hidden" 
+              />
+            </label>
+          </p>
+          <p className="text-[11px] text-zinc-400">
+            Supports HPLC curves, GC-MS outputs, COA PDFs, CSV, Excel, and images up to 10 MB.
+          </p>
+        </div>
+
+        {/* Optional log linker dropdown */}
+        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2 w-full max-w-xs">
+          <span className="text-[10px] uppercase font-bold text-zinc-400 shrink-0">Link to Log:</span>
+          <select
+            value={selectedEntryId}
+            onChange={(e) => setSelectedEntryId(e.target.value)}
+            className="flex-1 h-8 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 focus:outline-none focus:border-primary cursor-pointer w-full"
+          >
+            <option value="">-- No linked experiment --</option>
+            {entries.map((ent) => (
+              <option key={ent.id} value={ent.id}>
+                {ent.title}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

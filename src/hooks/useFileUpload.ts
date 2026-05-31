@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import toast from 'react-hot-toast';
+import { getFriendlyErrorMessage } from '@/lib/utils';
 
 export function useFileUpload() {
   const supabase = createClient();
@@ -27,7 +28,7 @@ export function useFileUpload() {
     });
   };
 
-  const uploadFile = useCallback(async (file: File, entryId: string) => {
+  const uploadFile = useCallback(async (file: File, entryId?: string) => {
     if (!activeWorkspace) {
       toast.error('No active workspace selected');
       return null;
@@ -60,7 +61,8 @@ export function useFileUpload() {
     try {
       // 3. Create unique path prefix under: workspaceId/entryId/timestamp-filename
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `${activeWorkspace.id}/${entryId}/${Date.now()}-${sanitizedName}`;
+      const entryFolder = entryId || 'unlinked';
+      const storagePath = `${activeWorkspace.id}/${entryFolder}/${Date.now()}-${sanitizedName}`;
 
       // 4. Upload file to Supabase storage
       const { data: storageData, error: storageError } = await supabase.storage
@@ -82,7 +84,7 @@ export function useFileUpload() {
       const { data: fileData, error: fileError } = await (supabase.from('files') as any)
         .insert({
           workspace_id: activeWorkspace.id,
-          entry_id: entryId,
+          entry_id: entryId || null,
           file_name: file.name,
           file_url: publicUrl,
           file_type: file.type || file.name.split('.').pop() || 'unknown',
@@ -95,27 +97,39 @@ export function useFileUpload() {
       if (fileError) throw fileError;
 
       // For entry_files table (duplicate records for database integrity)
-      const { error: entryFileError } = await (supabase.from('entry_files') as any)
-        .insert({
-          workspace_id: activeWorkspace.id,
-          entry_id: entryId,
-          uploaded_by: user.id,
-          file_name: file.name,
-          file_size: file.size,
-          mime_type: file.type || 'application/octet-stream',
-          storage_path: storagePath,
-          is_deleted: false,
-        });
+      if (entryId) {
+        const { error: entryFileError } = await (supabase.from('entry_files') as any)
+          .insert({
+            workspace_id: activeWorkspace.id,
+            entry_id: entryId,
+            uploaded_by: user.id,
+            file_name: file.name,
+            file_size: file.size,
+            mime_type: file.type || 'application/octet-stream',
+            storage_path: storagePath,
+            is_deleted: false,
+          });
 
-      if (entryFileError) {
-        console.error('Failed to sync metadata to entry_files:', entryFileError);
+        if (entryFileError) {
+          console.error('Failed to sync metadata to entry_files:', entryFileError);
+        }
       }
+
+      // Log activity
+      await (supabase.from('activity_logs') as any).insert({
+        workspace_id: activeWorkspace.id,
+        user_id: user.id,
+        action: 'upload',
+        entity_type: 'file',
+        entity_id: fileData.id,
+        metadata: { file_name: file.name, entry_id: entryId || null }
+      });
 
       toast.success('File uploaded successfully!');
       return fileData;
     } catch (err: any) {
       console.error('Upload failed:', err);
-      toast.error(err.message || 'File upload failed');
+      toast.error(getFriendlyErrorMessage(err, 'File upload failed'));
       return null;
     } finally {
       setIsUploading(false);
@@ -161,11 +175,24 @@ export function useFileUpload() {
         .update({ is_deleted: true })
         .eq('storage_path', storagePath);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && activeWorkspace) {
+        // Log activity
+        await (supabase.from('activity_logs') as any).insert({
+          workspace_id: activeWorkspace.id,
+          user_id: user.id,
+          action: 'delete',
+          entity_type: 'file',
+          entity_id: fileId,
+          metadata: { storage_path: storagePath }
+        });
+      }
+
       toast.success('File deleted successfully');
       return true;
     } catch (err: any) {
       console.error('Failed to delete file:', err);
-      toast.error('Failed to delete file');
+      toast.error(getFriendlyErrorMessage(err, 'Failed to delete file'));
       return false;
     }
   };
